@@ -158,7 +158,7 @@ class ExcelFilterApp(QWidget):
             self.df_block_filtered = None
             self.df_final_filtered = None
 
-            blocks = sorted(df["Block"].dropna().unique().astype(str))
+            blocks = sorted(df["Block"].unique().astype(str))
             self.block_dropdown.clear()
             self.block_dropdown.addItem("Select Block")
             self.block_dropdown.addItems(blocks)
@@ -177,7 +177,7 @@ class ExcelFilterApp(QWidget):
 
         self.df_block_filtered = self.df_full[self.df_full["Block"].astype(str) == block]
 
-        villages = sorted(self.df_block_filtered["Village"].dropna().unique().astype(str))
+        villages = sorted(self.df_block_filtered["Village"].unique().astype(str))
         self.village_dropdown.clear()
         self.village_dropdown.addItem("Select Village")
         self.village_dropdown.addItems(villages)
@@ -194,7 +194,7 @@ class ExcelFilterApp(QWidget):
             return
 
         df_fid_filtered = self.df_village_filtered[self.df_village_filtered["FID"].astype(str) == fid]
-        farmers = sorted(df_fid_filtered["Farmer Name"].dropna().unique().astype(str))
+        farmers = sorted(df_fid_filtered["Farmer Name"].unique().astype(str))
 
         self.farmer_dropdown.clear()
         self.farmer_dropdown.addItem("Select Farmer Name")
@@ -208,7 +208,7 @@ class ExcelFilterApp(QWidget):
         df_village_filtered = self.df_block_filtered[self.df_block_filtered["Village"].astype(str) == village]
         self.df_village_filtered = df_village_filtered  # Save for next step
 
-        fids = sorted(df_village_filtered["FID"].dropna().unique().astype(str))
+        fids = sorted(df_village_filtered["FID"].unique().astype(str))
 
         self.fid_dropdown.clear()
         self.fid_dropdown.addItem("Select Farmer ID")
@@ -264,7 +264,7 @@ class ExcelFilterApp(QWidget):
                 (self.df_full["FID"].astype(str) == fid) &
                 (self.df_full["Farmer Name"].astype(str) == farmer)
             ]
-            contact = self.df_final_filtered["Contact Number"].dropna().astype(str).iloc[0]  # safe
+            contact = self.df_final_filtered["Contact Number"].astype(str).iloc[0]  # safe
             if self.df_final_filtered.empty:
                 QMessageBox.warning(self, "No Data", "No data found for selected farmer.")
                 return
@@ -285,7 +285,7 @@ class ExcelFilterApp(QWidget):
                 (self.df_full["Block"].astype(str) == block) &
                 (self.df_full["Village"].astype(str) == village)
             ]
-            farmers = df_village[["FID", "Farmer Name"]].dropna().drop_duplicates()
+            farmers = df_village[["FID", "Farmer Name"]].drop_duplicates()
 
             if farmers.empty:
                 QMessageBox.warning(self, "No Data", "No farmer records found in this village.")
@@ -300,7 +300,7 @@ class ExcelFilterApp(QWidget):
                     (df_village["FID"].astype(str) == current_fid) &
                     (df_village["Farmer Name"].astype(str) == current_name)
                 ]
-                contact = self.df_final_filtered["Contact Number"].dropna().astype(str).iloc[0]
+                contact = self.df_final_filtered["Contact Number"].astype(str).iloc[0]
                 if self.df_final_filtered.empty:
                     continue
 
@@ -337,7 +337,20 @@ class ExcelFilterApp(QWidget):
             leading=12,
             alignment=0,
         )
-
+        
+        hindinormal = ParagraphStyle(
+            name="Hindi",
+            fontName="HindiFont",
+            fontSize=10,
+            alignment=0
+        )
+        
+        englishnormal = ParagraphStyle(
+            name="eng",
+            fontName="Helvetica",
+            fontSize=10,
+            alignment=0,
+        )
         elements.append(Paragraph("प्रारुप-3", title_style))
         elements.append(Paragraph("प्रधानमन्त्री फसल बीमा योजना के तहत फसल में हुई हानि के आकलन की रिपोर्ट", title_style))
         elements.append(Spacer(1, 10))
@@ -361,31 +374,31 @@ class ExcelFilterApp(QWidget):
 
 
         # fetch values from the DataFrame
-        survey_number = self.df_final_filtered["Survey Number"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
-        event_date = self.df_final_filtered["Event occurred Date"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
-        intimation_date = self.df_final_filtered["Date of Intimation"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
-        crop = self.df_final_filtered["Crop"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+        survey_number = self.df_final_filtered["Survey Number"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+        event_date = self.df_final_filtered["Event occurred Date"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+        intimation_date = self.df_final_filtered["Date of Intimation"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+        crop = self.df_final_filtered["Crop"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
        
         data = [
-            ["1.", Paragraph("किसान का नाम", mixed_bold_style), Paragraph(farmer, mixed_bold_style), 
+            ["1.", Paragraph("किसान का नाम", mixed_bold_style), Paragraph(farmer, englishnormal), 
             "2.", Paragraph("पिता/पति का नाम", mixed_bold_style), ""],
 
-            ["3.", Paragraph("किसान का फसल गांव", mixed_bold_style), Paragraph(village, mixed_bold_style), 
-            "4.", Paragraph("ब्लॉक", mixed_bold_style), Paragraph(block, mixed_bold_style)],
+            ["3.", Paragraph("किसान का फसल गांव", mixed_bold_style), Paragraph(village, englishnormal), 
+            "4.", Paragraph("ब्लॉक", mixed_bold_style), Paragraph(block, englishnormal)],
 
-            ["5.", Paragraph("जिला", mixed_bold_style), Paragraph("Hisar", mixed_bold_style), 
-            "6.", Paragraph("बीमा कम्पनी का नाम", mixed_bold_style), Paragraph("HDFC Ergo", mixed_bold_style)],
+            ["5.", Paragraph("जिला", mixed_bold_style), Paragraph("Hisar", englishnormal), 
+            "6.", Paragraph("बीमा कम्पनी का नाम", mixed_bold_style), Paragraph("HDFC Ergo", englishnormal)],
 
-            ["7.", Paragraph("बीमित फसल का नाम", mixed_bold_style), Paragraph(crop, mixed_bold_style), 
-            "8.", Paragraph("खराब फसल का मुस्तिल व किला नम्बर", mixed_bold_style), Paragraph(survey_number, mixed_bold_style)],
+            ["7.", Paragraph("बीमित फसल का नाम", mixed_bold_style), Paragraph(crop, englishnormal), 
+            "8.", Paragraph("खराब फसल का मुस्तिल व किला नम्बर", mixed_bold_style), Paragraph(survey_number, englishnormal)],
 
             ["9.", Paragraph("कृषक के बैंक व शाखा का नाम", mixed_bold_style), "", 
             "10.", Paragraph("सेविग / KCC खाता सं०", mixed_bold_style), ""],
 
             ["11.", Paragraph("फसल बुआई की तिथि", mixed_bold_style), "", 
-            "12.", Paragraph("फसल नुकसान की तिथि", mixed_bold_style), Paragraph(event_date, mixed_bold_style)],
+            "12.", Paragraph("फसल नुकसान की तिथि", mixed_bold_style), Paragraph(event_date, englishnormal)],
 
-            ["13.", Paragraph("फसल नुकसान के बारे में सूचना प्राप्त होने की तिथि", mixed_bold_style), Paragraph(intimation_date, mixed_bold_style), 
+            ["13.", Paragraph("फसल नुकसान के बारे में सूचना प्राप्त होने की तिथि", mixed_bold_style), Paragraph(intimation_date, englishnormal), 
             "14.", Paragraph("कमेटी के द्वारा खेत निरीक्षण की तिथि", mixed_bold_style), ""],
 
             ["15.", Paragraph("ऐप्लीकेशन आई० डी० (NCIP पोर्टल अनसार)", mixed_bold_style), mini_table],
@@ -429,7 +442,7 @@ class ExcelFilterApp(QWidget):
         ]))
 
         elements.append(line_17_table)
-        elements.append(Paragraph("क. फसल नुकसान का कारण (केवल एक विकल्प चुनें):- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; जल-भराव / ओलावृष्टि / आसमानी बिजली।", mixed_bold_style)) 
+        elements.append(Paragraph("क. फसल नुकसान का कारण (केवल एक विकल्प चुनें):- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; जल-भराव / ओलावृष्टि / आसमानी बिजली।", hindinormal)) 
         elements.append(Spacer(1, 5))        
         line_18_table = Table([
             [Paragraph("18. <u>फसल कटाई उपरान्त (Post Harvest) कमेटी के द्वारा मौका निरीक्षण का विवरण :-</u>", mixed_bold_style)]
@@ -441,9 +454,9 @@ class ExcelFilterApp(QWidget):
             ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
         elements.append(line_18_table)
-        elements.append(Paragraph("क. फसल कटाई की तिथि <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", mixed_bold_style)) 
+        elements.append(Paragraph("क. फसल कटाई की तिथि <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", hindinormal)) 
         elements.append(Spacer(1, 5))
-        elements.append(Paragraph("ख, फसल कटाई के उपरान्त नुकसान का कारणः- &nbsp;&nbsp; ओलावृष्ट्रि / चक्रवात / चक्रवातीय बारिश / बेमोसमी बारिश।", mixed_bold_style)) 
+        elements.append(Paragraph("ख, फसल कटाई के उपरान्त नुकसान का कारणः- &nbsp;&nbsp; ओलावृष्ट्रि / चक्रवात / चक्रवातीय बारिश / बेमोसमी बारिश।", hindinormal)) 
         elements.append(Spacer(1, 5))
         
         line_19_data = [[
@@ -477,11 +490,11 @@ class ExcelFilterApp(QWidget):
 
         elements.append(line_19_table)
         elements.append(Spacer(1, 5))
-        elements.append(Paragraph("क. जितने रकबे में नुकसान हुआ (हैक्टेयर अंको में) <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>शब्दों में <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", mixed_bold_style)) 
+        elements.append(Paragraph("क. जितने रकबे में नुकसान हुआ (हैक्टेयर अंको में) <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>शब्दों में <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", hindinormal)) 
         elements.append(Spacer(1, 2))
-        elements.append(Paragraph("ख. फसल नुकसान का कारण (केवल एक विकल्प चुनें):- जल-भराव / ओलावृष्टि/आसमानी बिजली।", mixed_bold_style)) 
+        elements.append(Paragraph("ख. फसल नुकसान का कारण (केवल एक विकल्प चुनें):- जल-भराव / ओलावृष्टि/आसमानी बिजली।", hindinormal)) 
         elements.append(Spacer(1, 2))
-        elements.append(Paragraph("ग. फसल नुकसान (प्रतिशत अंको में) <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>शब्दों में<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", mixed_bold_style)) 
+        elements.append(Paragraph("ग. फसल नुकसान (प्रतिशत अंको में) <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>शब्दों में<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", hindinormal)) 
         # Spacer to push the box right by 1 cm (skip numbering column)
         elements.append(Spacer(1, 9))  # small vertical gap
 
@@ -523,7 +536,7 @@ class ExcelFilterApp(QWidget):
         ]
 
         # Create signature row
-        signature_row = [Paragraph(text, mixed_bold_style) for text in signature_labels]
+        signature_row = [Paragraph(text, hindinormal) for text in signature_labels]
 
         # Inner table with 3 signature cells
         signature_table = Table(
@@ -553,7 +566,7 @@ class ExcelFilterApp(QWidget):
 
         # Add to elements
         elements.append(aligned_signature_table)
-        elements.append(Paragraph("नोटः &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; स्थानीय आपदाओं के सर्वे प्रारुप-3 पर कृषि विभाग के अधिकारी / कर्मचारी, किसान / किसान प्रतिनिधि व बीमा कम्पनी का कर्मचारी द्वारा मौके पर ही फसल नुकसान प्रतिशत व हस्ताक्षर करना अनिवार्य है।", mixed_bold_style)) 
+        elements.append(Paragraph("नोटः &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; स्थानीय आपदाओं के सर्वे प्रारुप-3 पर कृषि विभाग के अधिकारी / कर्मचारी, किसान / किसान प्रतिनिधि व बीमा कम्पनी का कर्मचारी द्वारा मौके पर ही फसल नुकसान प्रतिशत व हस्ताक्षर करना अनिवार्य है।", hindinormal)) 
         elements.append(Spacer(1, 9))
         elements.append(PageBreak())
         return elements
@@ -765,7 +778,7 @@ class ExcelFilterApp(QWidget):
                 (self.df_full["FID"].astype(str) == fid) &
                 (self.df_full["Farmer Name"].astype(str) == farmer)
             ]
-            contact = self.df_final_filtered["Contact Number"].dropna().astype(str).iloc[0]
+            contact = self.df_final_filtered["Contact Number"].astype(str).iloc[0]
             if self.df_final_filtered.empty:
                 QMessageBox.warning(self, "No Data", "No data found for selected farmer.")
                 return
@@ -787,7 +800,7 @@ class ExcelFilterApp(QWidget):
                 (self.df_full["Village"].astype(str) == village)
             ]
 
-            farmers = df_village[["FID", "Farmer Name"]].dropna().drop_duplicates()
+            farmers = df_village[["FID", "Farmer Name"]].drop_duplicates()
 
             if farmers.empty:
                 QMessageBox.warning(self, "No Data", "No farmer records found in this village.")
@@ -802,7 +815,7 @@ class ExcelFilterApp(QWidget):
                     (df_village["FID"].astype(str) == current_fid) &
                     (df_village["Farmer Name"].astype(str) == current_name)
                 ]
-                contact = self.df_final_filtered["Contact Number"].dropna().astype(str).iloc[0]  # safe
+                contact = self.df_final_filtered["Contact Number"].astype(str).iloc[0]  # safe
                 if self.df_final_filtered.empty:
                     continue
 
