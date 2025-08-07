@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, PageBreak, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
-from reportlab.lib.units import cm
+from reportlab.lib.units import cm, mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.styles import ParagraphStyle
@@ -16,12 +16,20 @@ from reportlab.lib import colors
 import subprocess
 from pathlib import Path
 
-# Register the bold Hindi font
-pdfmetrics.registerFont(TTFont("HindiFont-Bold", "fonts/NotoSansDevanagari-Bold.ttf"))
+# Helper to get the path of the bundled font folder
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS  # temp folder used by PyInstaller
+    except Exception:
+        base_path = os.path.abspath(".")
 
-# Register Hindi font
-pdfmetrics.registerFont(TTFont("HindiFont", "fonts/NotoSansDevanagari-VariableFont_wdth,wght.ttf"))
+    return os.path.join(base_path, relative_path)
 
+
+# Register Hindi fonts
+pdfmetrics.registerFont(TTFont("HindiFont-Bold", resource_path("fonts/NotoSansDevanagari-Bold.ttf")))
+pdfmetrics.registerFont(TTFont("HindiFont", resource_path("fonts/NotoSansDevanagari-VariableFont_wdth,wght.ttf")))
+pdfmetrics.registerFont(TTFont("Mixfont", resource_path("fonts/Mukta-Bold.ttf")))
 
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog,
@@ -180,30 +188,6 @@ class ExcelFilterApp(QWidget):
         self.farmer_dropdown.clear()
         self.farmer_dropdown.addItem("Select Farmer Name")
 
-    def filter_data(self):
-        block = self.block_dropdown.currentText()
-        village = self.village_dropdown.currentText()
-        fid = self.fid_dropdown.currentText()
-        farmer = self.farmer_dropdown.currentText()
-
-        if (
-            block == "Select Block" or
-            village == "Select Village" or
-            fid == "Select Farmer ID" or
-            farmer == "Select Farmer Name"
-        ):
-            QMessageBox.warning(self, "Missing Selection", "Please select all filters.")
-            return
-
-        self.df_final_filtered = self.df_full[
-            (self.df_full["Block"].astype(str) == block) &
-            (self.df_full["Village"].astype(str) == village) &
-            (self.df_full["FID"].astype(str) == fid) &
-            (self.df_full["Farmer Name"].astype(str) == farmer)
-        ]
-        transformed = self.transform_filtered_data()
-        print(transformed)
-
     def populate_farmers(self):
         fid = self.fid_dropdown.currentText()
         if fid == "Select Farmer ID" or self.df_village_filtered is None:
@@ -248,22 +232,6 @@ class ExcelFilterApp(QWidget):
             "फसल का नाम": df["Crop"],
             "सर्वे/उप सर्वे नंबर": df["Survey Number"],
             "प्रभावित क्षेत्र (हेक्टेयर में)": df["Crop Area"],
-            "हानि प्रतिशत": "",  # Blank
-            "रिमार्क": ""         # Blank
-        })
-
-        return transformed
-
-    def transform_filtered_data_direct(self, df_input):
-        df = df_input.copy()
-
-        transformed = pd.DataFrame({
-            "क्र.सं.": range(1, len(df) + 1),
-            "सीएलएस नंबर": df["Saksham ID"].astype(str).apply(lambda x: x.split("-")[-1] if "-" in x else x),
-            "आवेदन संख्या": df["Intimation_Application id"],
-            "फसल का नाम": df["Crop"],
-            "सर्वे/उप सर्वे नंबर": df["Survey Number"],
-            "प्रभावित क्षेत्र (हेक्टेयर में)": df["Crop Area"],
             "हानि प्रतिशत": "",
             "रिमार्क": ""
         })
@@ -276,32 +244,17 @@ class ExcelFilterApp(QWidget):
         fid = self.fid_dropdown.currentText()
         farmer = self.farmer_dropdown.currentText()
 
-        if block == "Select Block":
-            QMessageBox.warning(self, "Missing Selection", "Please select at least Block.")
+        if block == "Select Block" or village == "Select Village":
+            QMessageBox.warning(self, "Missing Selection", "Please select at least Block and Village.")
             return
 
 
-        desktop = Path.home() / "Desktop"
-
-        # New Option 0: Block-only mode — single combined PDF for whole block
-        if village == "Select Village":
-            df_block = self.df_full[self.df_full["Block"].astype(str) == block]
-
-            if df_block.empty:
-                QMessageBox.warning(self, "No Data", "No farmer records found in this block.")
-                return
-
-            df_transformed = self.transform_filtered_data_direct(df_block)
-
-            desktop = Path.home() / "Desktop"
-            save_path = desktop / f"{block}.pdf"
-
-            try:
-                self.generate_pdf(df_transformed, save_path, block, "", "", "", "")  # empty village/fid/farmer/contact
-                QMessageBox.information(self, "Saved", f"PDF saved to:\n{save_path}")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save PDF:\n{e}")
-            return
+        if getattr(sys, 'frozen', False):
+            # App is running from a PyInstaller .exe
+            app_dir = Path(sys.executable).parent
+        else:
+            # App is running from a .py file
+            app_dir = Path(__file__).resolve().parent
 
         # Option 1: All four selected — Single farmer mode
         if fid != "Select Farmer ID" and farmer != "Select Farmer Name":
@@ -317,7 +270,7 @@ class ExcelFilterApp(QWidget):
                 return
 
             df_transformed = self.transform_filtered_data()
-            save_path = desktop / f"{block}_{village}_{fid}.pdf"
+            save_path = app_dir / f"{block} {village} {fid}.pdf"
 
             try:
                 self.generate_pdf(df_transformed, save_path, block, village, fid, farmer, contact)
@@ -343,23 +296,23 @@ class ExcelFilterApp(QWidget):
             for _, row in farmers.iterrows():
                 current_fid = str(row["FID"])
                 current_name = str(row["Farmer Name"])
-                filtered = df_village[
+                self.df_final_filtered = df_village[
                     (df_village["FID"].astype(str) == current_fid) &
                     (df_village["Farmer Name"].astype(str) == current_name)
                 ]
-                contact = filtered["Contact Number"].dropna().astype(str).iloc[0]
-                if filtered.empty:
+                contact = self.df_final_filtered["Contact Number"].dropna().astype(str).iloc[0]
+                if self.df_final_filtered.empty:
                     continue
 
-                df_transformed = self.transform_filtered_data_direct(filtered)
-                save_path = desktop / f"{block}_{village}_{current_fid}.pdf"
+                df_transformed = self.transform_filtered_data()
+                save_path = app_dir / f"{block} {village} {current_fid}.pdf"
 
                 try:
                     self.generate_pdf(df_transformed, save_path, block, village, current_fid, current_name, contact)
                 except Exception as e:
                     errors.append(f"{current_name}: {e}")
 
-            QMessageBox.information(self, "Done", f"Saved {len(farmers)} PDFs to Desktop.\n" +
+            QMessageBox.information(self, "Done", f"Saved {len(farmers)} PDFs.\n" +
                                     ("Some errors occurred." if errors else ""))
             return
 
@@ -370,6 +323,239 @@ class ExcelFilterApp(QWidget):
     def generate_page1(self, block, village, fid, farmer, contact):
         elements = []
 
+        title_style = ParagraphStyle(
+            name="Page1Title",
+            fontName="HindiFont-Bold",
+            fontSize=14,
+            alignment=1
+        )
+        
+        mixed_bold_style = ParagraphStyle(
+            name="MixedBold",
+            fontName="Mixfont",
+            fontSize=10,
+            leading=12,
+            alignment=0,
+        )
+
+        elements.append(Paragraph("प्रारुप-3", title_style))
+        elements.append(Paragraph("प्रधानमन्त्री फसल बीमा योजना के तहत फसल में हुई हानि के आकलन की रिपोर्ट", title_style))
+        elements.append(Spacer(1, 10))
+        
+        styles = getSampleStyleSheet()
+        # Mini-table for row 15
+        mini_table_data = [
+            [Paragraph("1.", styles["Normal"]), Paragraph("2.", styles["Normal"])],
+            [Paragraph("3.", styles["Normal"]), Paragraph("4.", styles["Normal"])],
+            [Paragraph("5.", styles["Normal"]), Paragraph("6.", styles["Normal"])]
+        ]
+
+        # Mini-table for row 15, col 3 (spans cols 2–5: total width = 270)
+        mini_table = Table(mini_table_data, colWidths=[7.34*cm, 7.34*cm])
+        mini_table._argW = [7.34*cm, 7.34*cm]  # force the width
+
+        mini_table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.25, colors.black),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+
+
+        # fetch values from the DataFrame
+        survey_number = self.df_final_filtered["Survey Number"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+        event_date = self.df_final_filtered["Event occurred Date"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+        intimation_date = self.df_final_filtered["Date of Intimation"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+        crop = self.df_final_filtered["Crop"].dropna().astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+       
+        data = [
+            ["1.", Paragraph("किसान का नाम", mixed_bold_style), Paragraph(farmer, mixed_bold_style), 
+            "2.", Paragraph("पिता/पति का नाम", mixed_bold_style), ""],
+
+            ["3.", Paragraph("किसान का फसल गांव", mixed_bold_style), Paragraph(village, mixed_bold_style), 
+            "4.", Paragraph("ब्लॉक", mixed_bold_style), Paragraph(block, mixed_bold_style)],
+
+            ["5.", Paragraph("जिला", mixed_bold_style), Paragraph("Hisar", mixed_bold_style), 
+            "6.", Paragraph("बीमा कम्पनी का नाम", mixed_bold_style), Paragraph("HDFC Ergo", mixed_bold_style)],
+
+            ["7.", Paragraph("बीमित फसल का नाम", mixed_bold_style), Paragraph(crop, mixed_bold_style), 
+            "8.", Paragraph("खराब फसल का मुस्तिल व किला नम्बर", mixed_bold_style), Paragraph(survey_number, mixed_bold_style)],
+
+            ["9.", Paragraph("कृषक के बैंक व शाखा का नाम", mixed_bold_style), "", 
+            "10.", Paragraph("सेविग / KCC खाता सं०", mixed_bold_style), ""],
+
+            ["11.", Paragraph("फसल बुआई की तिथि", mixed_bold_style), "", 
+            "12.", Paragraph("फसल नुकसान की तिथि", mixed_bold_style), Paragraph(event_date, mixed_bold_style)],
+
+            ["13.", Paragraph("फसल नुकसान के बारे में सूचना प्राप्त होने की तिथि", mixed_bold_style), Paragraph(intimation_date, mixed_bold_style), 
+            "14.", Paragraph("कमेटी के द्वारा खेत निरीक्षण की तिथि", mixed_bold_style), ""],
+
+            ["15.", Paragraph("ऐप्लीकेशन आई० डी० (NCIP पोर्टल अनसार)", mixed_bold_style), mini_table],
+
+            ["16.", Paragraph("पी०एम०यू० आई०डी०", mixed_bold_style), ""]
+        ]
+
+
+        # Set outer table column widths
+        table = Table(data, colWidths=[
+            1*cm, 4.2*cm, 4.74*cm, 1*cm, 4.2*cm, 4.74*cm
+        ])
+
+
+
+        table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+
+            # Merge mini-table area (columns 2-5 in row 8)
+            ("SPAN", (2, 7), (5, 7)),
+
+            # Merge notes area (columns 2–5 in row 9)
+            ("SPAN", (2, 8), (5, 8)),
+
+            # Remove padding from the mini-table container cell
+            ("LEFTPADDING", (2, 7), (5, 7), 0),
+            ("RIGHTPADDING", (2, 7), (5, 7), 0),
+            ("TOPPADDING", (2, 7), (5, 7), 0),
+            ("BOTTOMPADDING", (2, 7), (5, 7), 0),
+        ]))
+        elements.append(table)
+        line_17_table = Table([
+            [Paragraph("17. <u>स्थानीय आपदाओं के तहत कमेटी के द्वारा मौका निरीक्षण का विवरणः-</u>", mixed_bold_style)]
+        ], colWidths=[sum([1*cm, 4.2*cm, 4.74*cm, 1*cm, 4.2*cm, 4.74*cm])])  # total width = 20.08 cm
+
+        line_17_table.setStyle(TableStyle([
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+
+        elements.append(line_17_table)
+        elements.append(Paragraph("क. फसल नुकसान का कारण (केवल एक विकल्प चुनें):- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; जल-भराव / ओलावृष्टि / आसमानी बिजली।", mixed_bold_style)) 
+        elements.append(Spacer(1, 5))        
+        line_18_table = Table([
+            [Paragraph("18. <u>फसल कटाई उपरान्त (Post Harvest) कमेटी के द्वारा मौका निरीक्षण का विवरण :-</u>", mixed_bold_style)]
+        ], colWidths=[sum([1*cm, 4.2*cm, 4.74*cm, 1*cm, 4.2*cm, 4.74*cm])])  # total width = 20.08 cm
+
+        line_18_table.setStyle(TableStyle([
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(line_18_table)
+        elements.append(Paragraph("क. फसल कटाई की तिथि <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", mixed_bold_style)) 
+        elements.append(Spacer(1, 5))
+        elements.append(Paragraph("ख, फसल कटाई के उपरान्त नुकसान का कारणः- &nbsp;&nbsp; ओलावृष्ट्रि / चक्रवात / चक्रवातीय बारिश / बेमोसमी बारिश।", mixed_bold_style)) 
+        elements.append(Spacer(1, 5))
+        
+        line_19_data = [[
+            Paragraph("19.", mixed_bold_style),
+            Paragraph("फसल जोखिम का कारणः- स्थानीय आपदा (Localized)", mixed_bold_style),
+            "",  # Box 1
+            Paragraph("/ फसल कटाई उपरान्त (Post Harvest)", mixed_bold_style),
+            "",  # Box 2
+            ""   # Extra cell to match the 6-column structure
+        ]]
+        line_19_table = Table(
+            line_19_data,
+            colWidths=[
+                1*cm,     # for "19."
+                8.4*cm,   # for "क. फसल कटाई की तिथि"
+                0.6*cm,   # first box
+                6.5*cm,   # "फसल कटाई उपरान्त..."
+                0.6*cm,   # second box
+                3*cm   # last filler to complete 20.08 cm total width
+            ], rowHeights=[0.7*cm] 
+        )
+
+        line_19_table.setStyle(TableStyle([
+            ("BOX", (2, 0), (2, 0), 0.5, colors.black),  # Box 1
+            ("BOX", (4, 0), (4, 0), 0.5, colors.black),  # Box 2
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 7),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+
+        elements.append(line_19_table)
+        elements.append(Spacer(1, 5))
+        elements.append(Paragraph("क. जितने रकबे में नुकसान हुआ (हैक्टेयर अंको में) <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>शब्दों में <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", mixed_bold_style)) 
+        elements.append(Spacer(1, 2))
+        elements.append(Paragraph("ख. फसल नुकसान का कारण (केवल एक विकल्प चुनें):- जल-भराव / ओलावृष्टि/आसमानी बिजली।", mixed_bold_style)) 
+        elements.append(Spacer(1, 2))
+        elements.append(Paragraph("ग. फसल नुकसान (प्रतिशत अंको में) <u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>शब्दों में<u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u>", mixed_bold_style)) 
+        # Spacer to push the box right by 1 cm (skip numbering column)
+        elements.append(Spacer(1, 9))  # small vertical gap
+
+        # Box aligned with text (starts after the first column)
+        final_box_data = [["", Paragraph("<u>कमेटी के द्वारा मौका निरीक्षण का विवरण :-</u>", mixed_bold_style)]]  # two cells: [invisible offset, actual box]
+
+        final_box_table = Table(
+            final_box_data,
+            colWidths=[1.0 * cm, 18.88 * cm],  # first cell is spacer (invisible), second is actual box
+            rowHeights=[6.0 * cm]
+        )
+
+        final_box_table.setStyle(TableStyle([
+            # Draw only the box in the second cell
+            ("BOX", (1, 0), (1, 0), 0.5, colors.black),
+
+            # Remove paddings and borders from invisible offset cell
+            ("LEFTPADDING", (0, 0), (0, 0), 0),
+            ("RIGHTPADDING", (0, 0), (0, 0), 0),
+            ("TOPPADDING", (0, 0), (0, 0), 0),
+            ("BOTTOMPADDING", (0, 0), (0, 0), 0),
+
+            ("LEFTPADDING", (1, 0), (1, 0), 6),
+            ("RIGHTPADDING", (1, 0), (1, 0), 6),
+            ("TOPPADDING", (1, 0), (1, 0), 6),
+            ("BOTTOMPADDING", (1, 0), (1, 0), 6),
+
+            ("VALIGN", (1, 0), (1, 0), "TOP")
+        ]))
+
+        elements.append(final_box_table)
+        elements.append(Spacer(1, 21))   
+        
+        # Signature labels
+        signature_labels = [
+            "कृषक) नाम एवं हस्ताक्षर<br/>मोबाईल नं०",
+            "(लोस एसैसर कम्पनी)<br/>नाम एवं हस्ताक्षर<br/>मोबाईल नं०",
+            "(खण्ड कृषि अधिकारी)<br/>नाम एवं हस्ताक्षर<br/>मोबाईल नं०"
+        ]
+
+        # Create signature row
+        signature_row = [Paragraph(text, mixed_bold_style) for text in signature_labels]
+
+        # Inner table with 3 signature cells
+        signature_table = Table(
+            [signature_row],
+            colWidths=[18.88 / 3 * cm] * 3,
+            rowHeights=[2.0 * cm]  # ✅ increased height
+        )
+
+        signature_table.setStyle(TableStyle([
+            # Only bottom borders
+            ("LINEBELOW", (0, 0), (0, 0), 1.5, colors.black),
+            ("LINEBELOW", (1, 0), (1, 0), 1.5, colors.black),
+            ("LINEBELOW", (2, 0), (2, 0), 1.5, colors.black),
+
+            # Padding and alignment
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+
+        # Wrap with alignment offset (skip first 1 cm like above)
+        aligned_signature_table = Table(
+            [["", signature_table]],
+            colWidths=[1.0 * cm, 18.88 * cm]
+        )
+
+        # Add to elements
+        elements.append(aligned_signature_table)
+        elements.append(Paragraph("नोटः &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; स्थानीय आपदाओं के सर्वे प्रारुप-3 पर कृषि विभाग के अधिकारी / कर्मचारी, किसान / किसान प्रतिनिधि व बीमा कम्पनी का कर्मचारी द्वारा मौके पर ही फसल नुकसान प्रतिशत व हस्ताक्षर करना अनिवार्य है।", mixed_bold_style)) 
+        elements.append(Spacer(1, 9))
+        elements.append(PageBreak())
         return elements
                 
             
@@ -476,7 +662,7 @@ class ExcelFilterApp(QWidget):
             table.setStyle(style)
             elements.append(table)
 
-            # ✅ Only append total row after last page
+            # Only append total row after last page
             if page_index == total_pages - 1:
                 total_row_data = [[""] * 8]
                 total_row_data[0][4] = "Total Area ="
@@ -560,10 +746,9 @@ class ExcelFilterApp(QWidget):
         fid = self.fid_dropdown.currentText()
         farmer = self.farmer_dropdown.currentText()
 
-        if block == "Select Block":
-            QMessageBox.warning(self, "Missing Selection", "Please select at least Block.")
+        if block == "Select Block" or village == "Select Village":
+            QMessageBox.warning(self, "Missing Selection", "Please select at least Block and Village.")
             return
-
 
         system = platform.system()
         if system != "Windows":
@@ -571,28 +756,7 @@ class ExcelFilterApp(QWidget):
             return
 
         temp_dir = tempfile.gettempdir()
-
-        # ✅ New Option 0: Block-only mode
-        if village == "Select Village":
-            df_block = self.df_full[self.df_full["Block"].astype(str) == block]
-
-            if df_block.empty:
-                QMessageBox.warning(self, "No Data", "No farmer records found in this block.")
-                return
-
-            df_transformed = self.transform_filtered_data_direct(df_block)
-
-            temp_dir = tempfile.gettempdir()
-            temp_path = os.path.join(temp_dir, f"{block}_print.pdf")
-
-            try:
-                self.generate_pdf(df_transformed, temp_path, block, "", "", "", "")
-                os.startfile(temp_path, "print")
-                QMessageBox.information(self, "Printed", "PDF sent to printer.")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to print PDF:\n{e}")
-            return
-
+        
         # Option 1: Single farmer
         if fid != "Select Farmer ID" and farmer != "Select Farmer Name":
             self.df_final_filtered = self.df_full[
@@ -634,15 +798,15 @@ class ExcelFilterApp(QWidget):
             for _, row in farmers.iterrows():
                 current_fid = str(row["FID"])
                 current_name = str(row["Farmer Name"])
-                filtered = df_village[
+                self.df_final_filtered = df_village[
                     (df_village["FID"].astype(str) == current_fid) &
                     (df_village["Farmer Name"].astype(str) == current_name)
                 ]
-                contact = filtered["Contact Number"].dropna().astype(str).iloc[0]  # safe
-                if filtered.empty:
+                contact = self.df_final_filtered["Contact Number"].dropna().astype(str).iloc[0]  # safe
+                if self.df_final_filtered.empty:
                     continue
 
-                df_transformed = self.transform_filtered_data_direct(filtered)
+                df_transformed = self.transform_filtered_data()
                 temp_path = os.path.join(temp_dir, f"{block}_{village}_{current_fid}_print.pdf")
 
                 try:
