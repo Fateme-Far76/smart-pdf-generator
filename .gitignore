@@ -1,0 +1,12 @@
+# Ignore all __pycache__ folders
+__pycache__/
+common/__pycache__/
+layouts/__pycache__/
+
+# Ignore images folder
+images/
+
+# Ignore specific files
+Sample Data.xlsx
+sample2.pdf
+
