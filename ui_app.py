@@ -120,7 +120,7 @@ class ExcelFilterApp(QWidget):
             return
 
         try:
-            all_sheets = pd.read_excel(file_path, sheet_name=None)
+            all_sheets = pd.read_excel(file_path, sheet_name=None).fillna("")
             sheet_name = list(all_sheets.keys())[0]
             df = all_sheets[sheet_name]
 

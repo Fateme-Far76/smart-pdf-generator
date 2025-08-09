@@ -179,7 +179,8 @@ def generate_page2(df_transformed, block, village, fid, farmer, contact):
     # 2. Add Farmer ID (left-aligned)
     elements.append(Paragraph(f"Farmer ID = {fid}", info_style))
 
-    total_area = df_transformed["प्रभावित क्षेत्र (हेक्टेयर में)"].astype(float).sum()
+    df_transformed["प्रभावित क्षेत्र (हेक्टेयर में)"] = df_transformed["प्रभावित क्षेत्र (हेक्टेयर में)"].replace("", 0).astype(float)
+    total_area = df_transformed["प्रभावित क्षेत्र (हेक्टेयर में)"].sum()
     total_pages = ceil(len(data_rows) / rows_per_page)
     for page_index in range(total_pages):
         start = page_index * rows_per_page
