@@ -173,7 +173,7 @@ def generate_page2(df_transformed, block, village, fid, farmer, contact):
     elements.append(info_table)
 
     # 2. Add Farmer ID (left-aligned)
-    elements.append(Paragraph(f"Farmer ID = {fid}", info_style))
+    elements.append(Paragraph(f"Farmer ID = {int(float(str(fid)))}", info_style))
 
     # --- Group by crop, then paginate 22 rows per page ---
     rows_per_page = 22
@@ -189,16 +189,13 @@ def generate_page2(df_transformed, block, village, fid, farmer, contact):
 
     # Get groups in a stable order so we can know the last crop
     crop_groups = list(df_transformed.groupby("फसल का नाम", dropna=False, sort=False))
-
     for crop_idx, (crop_value, grp) in enumerate(crop_groups):
+
         is_last_crop = (crop_idx == len(crop_groups) - 1)
 
         # Display copy (strings; NaN -> "")
-        grp_display = (
-            grp.reset_index(drop=True)
-            .where(grp.notna(), "")
-            .astype(str)
-        )
+        grp_display = grp.reset_index(drop=True).copy()
+        grp_display = grp_display.map(lambda x: "" if pd.isna(x) else str(x))
 
         # Per-crop total (area column), robust to blanks
         total_area = None
@@ -244,7 +241,7 @@ def generate_page2(df_transformed, block, village, fid, farmer, contact):
                 total_row_data[0][5] = f"{total_area:.5f} Hect"
 
                 total_row = Table(total_row_data, colWidths=[
-                    1.5*cm, 2.0*cm, 4.2*cm, 2.2*cm, 2.4*cm, 2.6*cm, 2.5*cm, 2.5*cm
+                    1.5*cm, 2.0*cm, 4.3*cm, 2.9*cm, 2.4*cm, 2.6*cm, 2.1*cm, 2.1*cm
                 ])
                 total_row.setStyle(TableStyle([
                     ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
