@@ -24,8 +24,62 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-def generate_page2(df_transformed, block, village, fid, farmer, contact, df_final_filtered):
-    pass
+def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value, farmer, contact):
+    
+    elements = []
+
+    # --- constants ---
+    DATA_PER_PAGE = 40
+    START_NUM = 11                 # numbering starts at 11 on every page
+
+    # Make a display-safe copy (no NaN strings)
+    df = leftover_df.reset_index(drop=True).copy()
+
+    total_pages = ceil(len(df) / DATA_PER_PAGE) or 1
+
+    for page_index in range(total_pages):
+        start = page_index * DATA_PER_PAGE
+        end   = start + DATA_PER_PAGE
+        chunk = df.iloc[start:end].copy()
+
+        # Build exactly 50 visible rows (numbers 11..50), first fill with data, then blanks
+        numbered_rows = []
+        for i in range(DATA_PER_PAGE):
+            row_num = START_NUM + i
+            if i < len(chunk):
+                row_vals = chunk.iloc[i].tolist()
+                # ensure correct width and set serial number in col 0
+                if len(row_vals) >= 1:
+                    row_vals[0] = str(row_num)
+                else:
+                    row_vals = [str(row_num)] + [""] * 7
+            else:
+                row_vals = [str(row_num)] + [""] * 7
+            numbered_rows.append(row_vals)
+
+        # Assemble table: header + numbered rows
+        table_data = [header_row] + numbered_rows
+
+        # Build a row with the same number of columns as the main table (+1 for the serial column)
+        total_row = [""] * 8
+
+        total_label = Image(resource_path("images/l2_sum.PNG"), width=3*cm, height=15)
+        total_row[0] = total_label
+        total_row[3] = total_value
+        table_data.append(total_row)
+        
+        tbl = Table(table_data, colWidths=data_tbl_width)
+        
+        tbl.setStyle(tbl_style)
+        elements.append(tbl)
+        elements.append(Spacer(1, 30))   
+        elements.append(table_sign)
+        elements.append(Image(resource_path("images/l2_bottom.PNG"), width=20*cm, height=40))
+        # Page break between pages (not after the last page)
+        if page_index < total_pages - 1:
+            elements.append(PageBreak())
+
+    return elements
 
 def generate_page1(df_transformed, block, village, fid, farmer, contact, df_final_filtered):
     elements = []
@@ -36,8 +90,8 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
         fontSize=10,
         alignment=0,
     )
-    
-    elements.append(Image(resource_path("images/l2_title.PNG"), width=20*cm, height=30))
+    elements.append(Paragraph(str(int(float(str(fid)))), englishnormal))
+    elements.append(Image(resource_path("images/l2_title.PNG"), width=15*cm, height=35))
     elements.append(Spacer(1, 10))
 
 
@@ -49,14 +103,14 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     Intimation_Application_id = df_final_filtered["Intimation_Application id"].astype(str).iloc[0] if not df_final_filtered.empty else ""
     
     data = [
-        ["1.", Image(resource_path("images/1.PNG"), width=100, height=15), Paragraph(farmer, englishnormal), 
-        "2.", Image("images/2.PNG", width=100, height=15), ""],
+        ["1.", Image(resource_path("images/1.PNG"), width=100, height=13), Paragraph(farmer, englishnormal), 
+        "2.", Image("images/2.PNG", width=100, height=13), ""],
 
-        ["3.", Image(resource_path("images/3.PNG"), width=100, height=15), Paragraph(village, englishnormal), 
-        "4.", Image("images/4.PNG", width=100, height=15), Paragraph(block, englishnormal)],
+        ["3.", Image(resource_path("images/3.PNG"), width=100, height=13), Paragraph(village, englishnormal), 
+        "4.", Image("images/4.PNG", width=100, height=13), Paragraph(block, englishnormal)],
 
-        ["5.", Image(resource_path("images/5.PNG"), width=100, height=15), Paragraph("Hisar", englishnormal), 
-        "6.", Image(resource_path("images/6.PNG"), width=100, height=15), Paragraph("HDFC Ergo", englishnormal)],
+        ["5.", Image(resource_path("images/5.PNG"), width=100, height=13), Paragraph("Hisar", englishnormal), 
+        "6.", Image(resource_path("images/6.PNG"), width=100, height=13), Paragraph("HDFC Ergo", englishnormal)],
 
         ["7.", Image(resource_path("images/7.PNG"), width=100, height=20), Paragraph(crop, englishnormal), 
         "8.", Image(resource_path("images/2.PNG"), width=100, height=20), Paragraph(survey_number, englishnormal)],
@@ -64,13 +118,13 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
         ["9.", Image(resource_path("images/9.PNG"), width=100, height=20), "", 
         "10.", Image(resource_path("images/10.PNG"), width=100, height=20), ""],
 
-        ["11.", Image(resource_path("images/11.PNG"), width=100, height=20), "", 
-        "12.", Image(resource_path("images/12.PNG"), width=100, height=20), Paragraph(event_date, englishnormal)],
+        ["11.", Image(resource_path("images/11.PNG"), width=100, height=18), "", 
+        "12.", Image(resource_path("images/12.PNG"), width=100, height=18), Paragraph(event_date, englishnormal)],
 
         ["13.", Image(resource_path("images/13.PNG"), width=100, height=30), Paragraph(intimation_date, englishnormal), 
         "14.", Image(resource_path("images/14.PNG"), width=100, height=30), ""],
 
-        ["15.", Image(resource_path("images/l2_15.PNG"), width=100, height=15), Paragraph(Intimation_Application_id, englishnormal)]
+        ["15.", Image(resource_path("images/l2_15.PNG"), width=100, height=10), Paragraph(Intimation_Application_id, englishnormal)]
     ]
 
     # Set outer table column widths
@@ -95,8 +149,8 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
         ("BOTTOMPADDING", (2, 7), (5, 7), 0),
     ]))
     elements.append(table)
-    elements.append(Spacer(1, 10))
-    elements.append(Image("images/l2_middle.PNG", width=20*cm, height=100))
+    elements.append(Spacer(1, 6))
+    elements.append(Image("images/l2_middle.PNG", width=20*cm, height=140))
 
     cell_style = ParagraphStyle(
         name="cell",
@@ -114,14 +168,11 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
         pd.to_numeric(df["बीमित क्षेत्र"].replace("", 0), errors="coerce")
         .fillna(0.0)
     )
-    total_area = float(area_series.sum())
-    
-    page_df= (
-        df.reset_index(drop=True)
-               .where(df.notna(), "")
-               .astype(str)
-    )
-    
+    sum_area = float(area_series.sum())
+    total_area = f"{sum_area:.5f}"
+    page_df = df.reset_index(drop=True).copy()
+    page_df = page_df.map(lambda x: "" if pd.isna(x) else str(x))
+
     # Split into first 10 and leftover
     page_display = page_df.iloc[:ROWS_TARGET].copy()
     leftover_df = page_df.iloc[ROWS_TARGET:].copy()
@@ -134,68 +185,73 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     
     # Header row
     header_row = [
-        Image(resource_path("images/l2_table1.PNG"), width=1.4*cm, height=20),
-        Image(resource_path("images/l2_table2.PNG"), width=2*cm, height=20),
-        Image(resource_path("images/l2_table3.PNG"), width=4.3*cm, height=20),
-        Image(resource_path("images/l2_table4.PNG"), width=3*cm, height=20),
-        Image(resource_path("images/l2_table5.PNG"), width=2.6*cm, height=20),
-        Image(resource_path("images/l2_table6.PNG"), width=2.8*cm, height=20),
-        Image(resource_path("images/l2_table7.PNG"), width=2.4*cm, height=20),
-        Image(resource_path("images/l2_table8.PNG"), width=2.4*cm, height=20)
+        Image(resource_path("images/l2_table1.PNG"), width=0.6*cm, height=35),
+        Image(resource_path("images/l2_table2.PNG"), width=4*cm, height=35),
+        Image(resource_path("images/l2_table3.PNG"), width=3*cm, height=35),
+        Image(resource_path("images/l2_table4.PNG"), width=2.6*cm, height=35),
+        Image(resource_path("images/l2_table5.PNG"), width=2*cm, height=35),
+        Image(resource_path("images/l2_table6.PNG"), width=1.4*cm, height=35),
+        Image(resource_path("images/l2_table7.PNG"), width=1.5*cm, height=35),
+        Image(resource_path("images/l2_table8.PNG"), width=2*cm, height=35)
     ]
 
-    
     table_rows = []
     for i, row_vals in enumerate(page_display.values.tolist(), start=1):
         row_vals[0] = str(i)  # force first col to 1..10 shown
-        # Wrap into Paragraphs for consistent spacing (optional)
-        row_vals = [Paragraph(str(v), cell_style) for v in row_vals]
         table_rows.append(row_vals)
 
     data = [header_row] + table_rows
-    total_label = Image(resource_path("images/l2_sum.PNG"), width=4*cm, height=20)
-    total_value = Paragraph(f"<b>{total_area}</b>", cell_style)
+    total_label = Image(resource_path("images/l2_sum.PNG"), width=3*cm, height=15)
+    left_style = ParagraphStyle("Left", fontName="Helvetica", fontSize=9, alignment=0)
+    total_value = Paragraph(f"<b>{total_area}</b>", left_style)
     
     total_row = [""] * 8
-    total_row[3] = total_label
-    total_row[4] = total_value
+    total_row[0] = total_label
+    total_row[3] = total_value
     data.append(total_row)   
+    data_tbl_width = [0.9*cm, 4.72*cm, 2.92*cm, 2.42*cm, 2.02*cm, 2*cm, 2*cm, 2.9*cm]
+    table = Table(data, colWidths=data_tbl_width)
     
-    table = Table(data, colWidths=[
-        1.5*cm, 4.32*cm, 2.02*cm, 2.42*cm, 2.62*cm, 2*cm, 2*cm, 3*cm
-    ], rowHeights=20)
-    
-    style = TableStyle([
+    tbl_style = TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("LEADING",  (0, 1), (-1, -1), 9),
         ("GRID", (0, 0), (-1, -2), 0.5, colors.black),  # all grid except total row bottom
         ("GRID", (0, -1), (-1, -1), 0.5, colors.black), # grid for total row too
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
 
-        # Make the 4th column (index 3) slightly smaller font (optional, like your earlier rule)
-        ("FONTSIZE", (3, 0), (3, -1), 9),
-
         # TOTAL ROW MERGES:
         # Merge first four cells of the total row (0..3) to make whitespace block on left
-        ("SPAN", (0, len(data)-1), (3, len(data)-1)),
+        ("SPAN", (0, -1), (2, -1)),
+        ("SPAN", (3, -1), (7, -1)),
+        ("SPAN", (7, 1), (7, -2)),
+        # --- TOTAL ROW ALIGNMENTS ---
+        ("ALIGN", (0, -1), (0, -1), "RIGHT"),  # label right
+        ("ALIGN", (3, -1), (3, -1), "LEFT"),   # value left
 
-        # You can also merge the last two cells if you want a wide remarks cell on total row:
-        ("SPAN", (4, len(data)-1), (7, len(data)-1)),
-
-        # Alignments for total row label/value
-        ("ALIGN", (4, len(data)-1), (4, len(data)-1), "RIGHT"),
-        ("ALIGN", (5, len(data)-1), (5, len(data)-1), "LEFT"),
-        ("FONTNAME", (5, len(data)-1), (5, len(data)-1), "Helvetica-Bold"),
-        ("BOTTOMPADDING", (0, len(data)-1), (-1, len(data)-1), 6),
-        ("TOPPADDING", (0, len(data)-1), (-1, len(data)-1), 6),
+        # --- TOTAL ROW HEIGHT (smaller) ---
+        ("TOPPADDING", (0, -1), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 0),
     ])
-    style.add("SPAN", (7, 1), (7, 10))
-    table.setStyle(style)
+    
+    table.setStyle(tbl_style)
     elements.append(table)
-    elements.append(Spacer(1, 10))
-    elements.append(Image(resource_path("images/l2_p1_below_table.PNG"), width=12*cm, height=20))
-    elements.append(Spacer(1, 20))    
+    elements.append(Spacer(1, 2))   
+    
+    blow_tbl_img = Image(resource_path("images/l2_p1_below_table.PNG"), width=6*cm, height=0.8*cm)
+    blow_tbl_img_tbl = Table([[blow_tbl_img]], colWidths=[19.88*cm])  # colWidths same as the image width
+    blow_tbl_img_tbl.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    elements.append(blow_tbl_img_tbl)
+    
+    elements.append(Spacer(1, 50))    
     # Example data (replace with your content)
     data_sign = [[
         Image(resource_path("images/l2_sign1.PNG"), width=4.9*cm, height=40),
@@ -207,14 +263,11 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     # Create table
     table_sign = Table(data_sign, colWidths=[4.97*cm, 4.97*cm, 4.97*cm, 4.97*cm], rowHeights=40)
     elements.append(table_sign)
-    elements.append(Image(resource_path("images/l2_bottom.PNG"), width=12*cm, height=30))
+    elements.append(Image(resource_path("images/l2_bottom.PNG"), width=20*cm, height=40))
 
     if len(leftover_df) > 0:
-        # e.g. start a new page, then:
-        # elements.append(PageBreak())
-        # generate_page2(leftover, block, village, fid, farmer, contact)
-        pass
-
+        elements.append(PageBreak())
+        elements += generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value, farmer, contact)
     return elements
                              
             
