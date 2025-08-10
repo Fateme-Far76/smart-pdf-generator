@@ -2,13 +2,14 @@ import sys
 import os
 import tempfile
 import platform
+import pandas as pd
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, PageBreak, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.styles import ParagraphStyle
-from common.pdf_builder import generate_pdf as _shared_generate_pdf
+from common.pdf_builder import generate_pdf2
 from math import ceil
 from reportlab.lib import colors
 from pathlib import Path
@@ -23,8 +24,10 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+def generate_page2(df_transformed, block, village, fid, farmer, contact, df_final_filtered):
+    pass
 
-def generate_page1(self, block, village, fid, farmer, contact):
+def generate_page1(df_transformed, block, village, fid, farmer, contact, df_final_filtered):
     elements = []
     
     englishnormal = ParagraphStyle(
@@ -34,15 +37,16 @@ def generate_page1(self, block, village, fid, farmer, contact):
         alignment=0,
     )
     
-    elements.append(Image("images/l2_title.PNG", width=20*cm, height=30))
+    elements.append(Image(resource_path("images/l2_title.PNG"), width=20*cm, height=30))
     elements.append(Spacer(1, 10))
 
 
     # fetch values from the DataFrame
-    survey_number = self.df_final_filtered["Survey Number"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
-    event_date = self.df_final_filtered["Event occurred Date"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
-    intimation_date = self.df_final_filtered["Date of Intimation"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
-    crop = self.df_final_filtered["Crop"].astype(str).iloc[0] if not self.df_final_filtered.empty else ""
+    survey_number = df_final_filtered["Survey Number"].astype(str).iloc[0] if not df_final_filtered.empty else ""
+    event_date = df_final_filtered["Event occurred Date"].astype(str).iloc[0] if not df_final_filtered.empty else ""
+    intimation_date = df_final_filtered["Date of Intimation"].astype(str).iloc[0] if not df_final_filtered.empty else ""
+    crop = df_final_filtered["Crop"].astype(str).iloc[0] if not df_final_filtered.empty else ""
+    Intimation_Application_id = df_final_filtered["Intimation_Application id"].astype(str).iloc[0] if not df_final_filtered.empty else ""
     
     data = [
         ["1.", Image(resource_path("images/1.PNG"), width=100, height=15), Paragraph(farmer, englishnormal), 
@@ -66,16 +70,13 @@ def generate_page1(self, block, village, fid, farmer, contact):
         ["13.", Image(resource_path("images/13.PNG"), width=100, height=30), Paragraph(intimation_date, englishnormal), 
         "14.", Image(resource_path("images/14.PNG"), width=100, height=30), ""],
 
-        ["15.", Image(resource_path("images/l2_15.PNG"), width=100, height=15), ""]
+        ["15.", Image(resource_path("images/l2_15.PNG"), width=100, height=15), Paragraph(Intimation_Application_id, englishnormal)]
     ]
-
 
     # Set outer table column widths
     table = Table(data, colWidths=[
         1*cm, 4.2*cm, 4.74*cm, 1*cm, 4.2*cm, 4.74*cm
     ])
-
-
 
     table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
@@ -96,61 +97,129 @@ def generate_page1(self, block, village, fid, farmer, contact):
     elements.append(table)
     elements.append(Spacer(1, 10))
     elements.append(Image("images/l2_middle.PNG", width=20*cm, height=100))
-    
-    info_style = ParagraphStyle(
-        name="FarmerInfo",
-        fontName="Helvetica-Bold",
-        fontSize=8,
-        alignment=0,  # Left-aligned
-        spaceAfter=4
+
+    cell_style = ParagraphStyle(
+        name="cell",
+        fontName="Helvetica",
+        fontSize=10,
+        alignment=1,
+        leading=12,
     )
-    style = TableStyle([
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.white),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-    ])
     
-    # Remove existing index column (we'll insert it manually)
-    df_transformed = df_transformed.drop(columns=["क्र.सं."])
-    data_rows = df_transformed.astype(str).values.tolist()
-
-    # Pad first page if needed
-    rows_per_page = 22
-    if len(data_rows) < rows_per_page:
-        blanks_needed = rows_per_page - len(data_rows)
-        blank_row = [""] * (df_transformed.shape[1])
-        data_rows += [blank_row.copy() for _ in range(blanks_needed)]
-
-    # Add row numbers (index)
-    for i, row in enumerate(data_rows):
-        row.insert(0, str(i + 1))  # insert row number at the start
-
+    ROWS_TARGET = 10
+    df = df_transformed.copy()
+    
+    # Compute the sum for crop area
+    area_series= (
+        pd.to_numeric(df["बीमित क्षेत्र"].replace("", 0), errors="coerce")
+        .fillna(0.0)
+    )
+    total_area = float(area_series.sum())
+    
+    page_df= (
+        df.reset_index(drop=True)
+               .where(df.notna(), "")
+               .astype(str)
+    )
+    
+    # Split into first 10 and leftover
+    page_display = page_df.iloc[:ROWS_TARGET].copy()
+    leftover_df = page_df.iloc[ROWS_TARGET:].copy()
+    
+    # Pad to exactly 10 rows
+    if len(page_display) < 10:
+        blanks_needed = 10 - len(page_display)
+        pad = pd.DataFrame([[""] * page_display.shape[1]] * blanks_needed, columns=page_display.columns)
+        page_display = pd.concat([page_display, pad], ignore_index=True)
+    
     # Header row
     header_row = [
-        Image("images/col1.PNG", width=1.4*cm, height=20),
-        Image("images/col2.PNG", width=2*cm, height=20),
-        Image("images/col3.PNG", width=4.3*cm, height=20),
-        Image("images/col4.PNG", width=3*cm, height=20),
-        Image("images/col5.PNG", width=2.6*cm, height=20),
-        Image("images/col6.PNG", width=2.8*cm, height=20),
-        Image("images/col7.PNG", width=2.4*cm, height=20),
-        Image("images/col8.PNG", width=2.4*cm, height=20)
+        Image(resource_path("images/l2_table1.PNG"), width=1.4*cm, height=20),
+        Image(resource_path("images/l2_table2.PNG"), width=2*cm, height=20),
+        Image(resource_path("images/l2_table3.PNG"), width=4.3*cm, height=20),
+        Image(resource_path("images/l2_table4.PNG"), width=3*cm, height=20),
+        Image(resource_path("images/l2_table5.PNG"), width=2.6*cm, height=20),
+        Image(resource_path("images/l2_table6.PNG"), width=2.8*cm, height=20),
+        Image(resource_path("images/l2_table7.PNG"), width=2.4*cm, height=20),
+        Image(resource_path("images/l2_table8.PNG"), width=2.4*cm, height=20)
     ]
 
+    
+    table_rows = []
+    for i, row_vals in enumerate(page_display.values.tolist(), start=1):
+        row_vals[0] = str(i)  # force first col to 1..10 shown
+        # Wrap into Paragraphs for consistent spacing (optional)
+        row_vals = [Paragraph(str(v), cell_style) for v in row_vals]
+        table_rows.append(row_vals)
 
-    elements.append(PageBreak())
+    data = [header_row] + table_rows
+    total_label = Image(resource_path("images/l2_sum.PNG"), width=4*cm, height=20)
+    total_value = Paragraph(f"<b>{total_area}</b>", cell_style)
+    
+    total_row = [""] * 8
+    total_row[3] = total_label
+    total_row[4] = total_value
+    data.append(total_row)   
+    
+    table = Table(data, colWidths=[
+        1.5*cm, 4.32*cm, 2.02*cm, 2.42*cm, 2.62*cm, 2*cm, 2*cm, 3*cm
+    ], rowHeights=20)
+    
+    style = TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("GRID", (0, 0), (-1, -2), 0.5, colors.black),  # all grid except total row bottom
+        ("GRID", (0, -1), (-1, -1), 0.5, colors.black), # grid for total row too
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+
+        # Make the 4th column (index 3) slightly smaller font (optional, like your earlier rule)
+        ("FONTSIZE", (3, 0), (3, -1), 9),
+
+        # TOTAL ROW MERGES:
+        # Merge first four cells of the total row (0..3) to make whitespace block on left
+        ("SPAN", (0, len(data)-1), (3, len(data)-1)),
+
+        # You can also merge the last two cells if you want a wide remarks cell on total row:
+        ("SPAN", (4, len(data)-1), (7, len(data)-1)),
+
+        # Alignments for total row label/value
+        ("ALIGN", (4, len(data)-1), (4, len(data)-1), "RIGHT"),
+        ("ALIGN", (5, len(data)-1), (5, len(data)-1), "LEFT"),
+        ("FONTNAME", (5, len(data)-1), (5, len(data)-1), "Helvetica-Bold"),
+        ("BOTTOMPADDING", (0, len(data)-1), (-1, len(data)-1), 6),
+        ("TOPPADDING", (0, len(data)-1), (-1, len(data)-1), 6),
+    ])
+    style.add("SPAN", (7, 1), (7, 10))
+    table.setStyle(style)
+    elements.append(table)
+    elements.append(Spacer(1, 10))
+    elements.append(Image(resource_path("images/l2_p1_below_table.PNG"), width=12*cm, height=20))
+    elements.append(Spacer(1, 20))    
+    # Example data (replace with your content)
+    data_sign = [[
+        Image(resource_path("images/l2_sign1.PNG"), width=4.9*cm, height=40),
+        Image(resource_path("images/l2_sign2.PNG"), width=4.9*cm, height=40),
+        Image(resource_path("images/l2_sign3.PNG"), width=4.9*cm, height=40),
+        Image(resource_path("images/l2_sign4.PNG"), width=4.9*cm, height=40)  
+    ]]
+
+    # Create table
+    table_sign = Table(data_sign, colWidths=[4.97*cm, 4.97*cm, 4.97*cm, 4.97*cm], rowHeights=40)
+    elements.append(table_sign)
+    elements.append(Image(resource_path("images/l2_bottom.PNG"), width=12*cm, height=30))
+
+    if len(leftover_df) > 0:
+        # e.g. start a new page, then:
+        # elements.append(PageBreak())
+        # generate_page2(leftover, block, village, fid, farmer, contact)
+        pass
+
     return elements
+                             
             
-            
-            
-                     
-            
-def generate_pdf(df_transformed, save_path, block, village, fid, farmer, contact):
-    return _shared_generate_pdf(
+def generate_pdf(df_transformed, save_path, block, village, fid, farmer, contact, df_final_filtered):
+    return generate_pdf2(
         df_transformed, save_path, block, village, fid, farmer, contact,
-        generate_page1, generate_page2
+        df_final_filtered, generate_page1
     )

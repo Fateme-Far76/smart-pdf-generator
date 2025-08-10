@@ -6,7 +6,7 @@ import tempfile
 import platform
 import os
 import pandas as pd
-from common.data_transform import transform_filtered_data
+from common.data_transform import transform_filtered_data, transform_filtered_data2
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog,
     QComboBox, QMessageBox, QListView, QLabel, QSizePolicy
@@ -120,9 +120,7 @@ class ExcelFilterApp(QWidget):
             return
 
         try:
-            all_sheets = pd.read_excel(file_path, sheet_name=None).fillna("")
-            sheet_name = list(all_sheets.keys())[0]
-            df = all_sheets[sheet_name]
+            df = pd.read_excel(file_path, sheet_name=0).fillna("")
 
             if not {"Block", "Village"}.issubset(df.columns):
                 QMessageBox.critical(self, "Missing Columns", "Excel file must contain 'Block' and 'Village' columns.")
@@ -223,7 +221,11 @@ class ExcelFilterApp(QWidget):
                 QMessageBox.warning(self, "No Data", "No data found for selected farmer.")
                 return
 
-            df_transformed = transform_filtered_data(self.df_final_filtered)
+            if layout ==layout1:
+                df_transformed = transform_filtered_data(self.df_final_filtered)
+            else:
+                df_transformed = transform_filtered_data2(self.df_final_filtered)
+                
             save_path = app_dir / f"{block} {village} {fid}.pdf"
 
             try:
@@ -260,7 +262,11 @@ class ExcelFilterApp(QWidget):
                     continue
                 contact = self.df_final_filtered["Contact Number"].astype(str).iloc[0]
                 
-                df_transformed = transform_filtered_data(self.df_final_filtered)
+                if layout ==layout1:            
+                    df_transformed = transform_filtered_data(self.df_final_filtered)
+                else:
+                    df_transformed = transform_filtered_data2(self.df_final_filtered)
+                    
                 save_path = app_dir / f"{block} {village} {current_fid}.pdf"
 
                 try:
@@ -310,7 +316,11 @@ class ExcelFilterApp(QWidget):
                 QMessageBox.warning(self, "No Data", "No data found for selected farmer.")
                 return
 
-            df_transformed = transform_filtered_data(self.df_final_filtered)
+            if layout ==layout1:  
+                df_transformed = transform_filtered_data(self.df_final_filtered)
+            else:
+                df_transformed = transform_filtered_data2(self.df_final_filtered)
+                
             temp_path = os.path.join(temp_dir, f"{block}_{village}_{fid}_print.pdf")
 
             try:
@@ -348,7 +358,11 @@ class ExcelFilterApp(QWidget):
                 if self.df_final_filtered.empty:
                     continue
 
-                df_transformed = transform_filtered_data(self.df_final_filtered)
+                if layout ==layout1:
+                    df_transformed = transform_filtered_data(self.df_final_filtered)
+                else:
+                    df_transformed = transform_filtered_data2(self.df_final_filtered)
+                    
                 temp_path = os.path.join(temp_dir, f"{block}_{village}_{current_fid}_print.pdf")
 
                 try:
