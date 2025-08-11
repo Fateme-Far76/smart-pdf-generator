@@ -1,10 +1,11 @@
 import sys
 import os
-import tempfile
-import platform
 import pandas as pd
+from PIL import Image as PILimage
+from PIL import ImageDraw, ImageFont
+import io
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, PageBreak, Spacer
+from reportlab.platypus import Table, TableStyle, Paragraph, PageBreak, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -24,7 +25,55 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
-def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value, farmer, contact):
+def save_image_with_texts(
+    image_path, 
+    text1, 
+    text2, 
+    font_path,
+    out_w,
+    out_h, 
+    font_size=28,   # smaller font
+    margin=25, 
+    offset_down=30, # push both lines down more
+    spacing=15      # more vertical space between lines
+):
+    # Open image
+    img = PILimage.open(image_path).convert("RGBA")
+    width, height = img.size
+
+    # Draw on it
+    draw = ImageDraw.Draw(img)
+    font = ImageFont.truetype(font_path, font_size)
+
+    # Measure first text
+    bbox1 = draw.textbbox((0, 0), text1, font=font)
+    text1_width = bbox1[2] - bbox1[0]
+    text1_height = bbox1[3] - bbox1[1]
+
+    # Measure second text
+    bbox2 = draw.textbbox((0, 0), text2, font=font)
+    text2_width = bbox2[2] - bbox2[0]
+    text2_height = bbox2[3] - bbox2[1]
+
+    # Position first text
+    y1 = ((height - (text1_height + spacing + text2_height)) // 2) + offset_down
+    x1 = width - text1_width - margin
+
+    # Position second text
+    y2 = y1 + text1_height + spacing
+    x2 = width - text2_width - margin
+
+    # Draw both in black
+    draw.text((x1, y1), text1, font=font, fill=(0, 0, 0, 255))
+    draw.text((x2, y2), text2, font=font, fill=(0, 0, 0, 255))
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return Image(buf, width=out_w, height=out_h)
+
+
+def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value):
     
     elements = []
 
@@ -90,7 +139,7 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
         fontSize=10,
         alignment=0,
     )
-    elements.append(Paragraph(str(int(float(str(fid)))), englishnormal))
+    elements.append(Paragraph(f"<b>{int(float(str(fid)))}</b>", englishnormal))
     elements.append(Image(resource_path("images/l2_title.PNG"), width=15*cm, height=35))
     elements.append(Spacer(1, 10))
 
@@ -152,14 +201,6 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     elements.append(Spacer(1, 6))
     elements.append(Image("images/l2_middle.PNG", width=20*cm, height=140))
 
-    cell_style = ParagraphStyle(
-        name="cell",
-        fontName="Helvetica",
-        fontSize=10,
-        alignment=1,
-        leading=12,
-    )
-    
     ROWS_TARGET = 10
     df = df_transformed.copy()
     
@@ -252,9 +293,11 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     elements.append(blow_tbl_img_tbl)
     
     elements.append(Spacer(1, 50))    
+    sign1_img = save_image_with_texts(resource_path("images/l2_sign1.PNG"), farmer, contact, font_path=resource_path("fonts/Helvetica.ttf"), out_w=4.9*cm, out_h=40)
+    
     # Example data (replace with your content)
     data_sign = [[
-        Image(resource_path("images/l2_sign1.PNG"), width=4.9*cm, height=40),
+        sign1_img,
         Image(resource_path("images/l2_sign2.PNG"), width=4.9*cm, height=40),
         Image(resource_path("images/l2_sign3.PNG"), width=4.9*cm, height=40),
         Image(resource_path("images/l2_sign4.PNG"), width=4.9*cm, height=40)  
@@ -267,7 +310,7 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
 
     if len(leftover_df) > 0:
         elements.append(PageBreak())
-        elements += generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value, farmer, contact)
+        elements += generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value)
     return elements
                              
             
