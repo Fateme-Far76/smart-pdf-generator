@@ -6,7 +6,6 @@ from PIL import ImageDraw, ImageFont
 import io
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import Table, TableStyle, Paragraph, PageBreak, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.styles import ParagraphStyle
@@ -73,10 +72,12 @@ def save_image_with_texts(
     return Image(buf, width=out_w, height=out_h)
 
 
-def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value):
+def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value, fid, englishnormal):
     
     elements = []
-
+    elements.append(Paragraph(f"<b>{fid}</b>", englishnormal))
+    elements.append(Spacer(1, 3)) 
+    
     # --- constants ---
     DATA_PER_PAGE = 40
     START_NUM = 11                 # numbering starts at 11 on every page
@@ -105,7 +106,7 @@ def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sig
             else:
                 row_vals = [str(row_num)] + [""] * 7
             numbered_rows.append(row_vals)
-
+        START_NUM += 40
         # Assemble table: header + numbered rows
         table_data = [header_row] + numbered_rows
 
@@ -121,7 +122,7 @@ def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sig
         
         tbl.setStyle(tbl_style)
         elements.append(tbl)
-        elements.append(Spacer(1, 30))   
+        elements.append(Spacer(1, 10))   
         elements.append(table_sign)
         elements.append(Image(resource_path("images/l2_bottom.PNG"), width=20*cm, height=40))
         # Page break between pages (not after the last page)
@@ -136,11 +137,11 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     englishnormal = ParagraphStyle(
         name="eng",
         fontName="Helvetica",
-        fontSize=10,
+        fontSize=9,
         alignment=0,
     )
-    elements.append(Paragraph(f"<b>{int(float(str(fid)))}</b>", englishnormal))
-    elements.append(Image(resource_path("images/l2_title.PNG"), width=15*cm, height=35))
+    elements.append(Paragraph(f"<b>{fid}</b>", englishnormal))
+    elements.append(Image(resource_path("images/l2_title.PNG"), width=20*cm, height=45))
     elements.append(Spacer(1, 10))
 
 
@@ -149,31 +150,31 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     event_date = df_final_filtered["Event occurred Date"].astype(str).iloc[0] if not df_final_filtered.empty else ""
     intimation_date = df_final_filtered["Date of Intimation"].astype(str).iloc[0] if not df_final_filtered.empty else ""
     crop = df_final_filtered["Crop"].astype(str).iloc[0] if not df_final_filtered.empty else ""
-    Intimation_Application_id = df_final_filtered["Intimation_Application id"].astype(str).iloc[0] if not df_final_filtered.empty else ""
+    Intimation_Application_id = df_final_filtered["Intimation_Application id"].astype(str).iloc[0][:19] if not df_final_filtered.empty else ""
     
     data = [
-        ["1.", Image(resource_path("images/1.PNG"), width=100, height=13), Paragraph(farmer, englishnormal), 
-        "2.", Image("images/2.PNG", width=100, height=13), ""],
+        ["1.", Image(resource_path("images/l2_1.PNG"), width=100, height=13), Paragraph(farmer, englishnormal), 
+        "2.", Image(resource_path("images/l2_2.PNG"), width=100, height=13), ""],
 
-        ["3.", Image(resource_path("images/3.PNG"), width=100, height=13), Paragraph(village, englishnormal), 
-        "4.", Image("images/4.PNG", width=100, height=13), Paragraph(block, englishnormal)],
+        ["3.", Image(resource_path("images/l2_3.PNG"), width=100, height=17), Paragraph(village, englishnormal), 
+        "4.", Image(resource_path("images/l2_4.PNG"), width=100, height=17), Paragraph(block, englishnormal)],
 
-        ["5.", Image(resource_path("images/5.PNG"), width=100, height=13), Paragraph("Hisar", englishnormal), 
-        "6.", Image(resource_path("images/6.PNG"), width=100, height=13), Paragraph("HDFC Ergo", englishnormal)],
+        ["5.", Image(resource_path("images/l2_5.PNG"), width=100, height=15), Paragraph("Hisar", englishnormal), 
+        "6.", Image(resource_path("images/l2_6.PNG"), width=100, height=15), Paragraph("HDFC Ergo", englishnormal)],
 
-        ["7.", Image(resource_path("images/7.PNG"), width=100, height=20), Paragraph(crop, englishnormal), 
-        "8.", Image(resource_path("images/2.PNG"), width=100, height=20), Paragraph(survey_number, englishnormal)],
+        ["7.", Image(resource_path("images/l2_7.PNG"), width=100, height=22), Paragraph(crop, englishnormal), 
+        "8.", Image(resource_path("images/l2_8.PNG"), width=100, height=23), Paragraph(survey_number, englishnormal)],
 
-        ["9.", Image(resource_path("images/9.PNG"), width=100, height=20), "", 
-        "10.", Image(resource_path("images/10.PNG"), width=100, height=20), ""],
+        ["9.", Image(resource_path("images/l2_9.PNG"), width=100, height=18), "", 
+        "10.", Image(resource_path("images/l2_10.PNG"), width=100, height=15), ""],
 
-        ["11.", Image(resource_path("images/11.PNG"), width=100, height=18), "", 
-        "12.", Image(resource_path("images/12.PNG"), width=100, height=18), Paragraph(event_date, englishnormal)],
+        ["11.", Image(resource_path("images/l2_11.PNG"), width=100, height=18), "", 
+        "12.", Image(resource_path("images/l2_12.PNG"), width=100, height=18), Paragraph(event_date, englishnormal)],
 
-        ["13.", Image(resource_path("images/13.PNG"), width=100, height=30), Paragraph(intimation_date, englishnormal), 
-        "14.", Image(resource_path("images/14.PNG"), width=100, height=30), ""],
+        ["13.", Image(resource_path("images/l2_13.PNG"), width=100, height=25), Paragraph(intimation_date, englishnormal), 
+        "14.", Image(resource_path("images/l2_14.PNG"), width=100, height=22), ""],
 
-        ["15.", Image(resource_path("images/l2_15.PNG"), width=100, height=10), Paragraph(Intimation_Application_id, englishnormal)]
+        ["15.", Image(resource_path("images/l2_15.PNG"), width=100, height=14), Paragraph(Intimation_Application_id, englishnormal)]
     ]
 
     # Set outer table column widths
@@ -199,7 +200,7 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     ]))
     elements.append(table)
     elements.append(Spacer(1, 6))
-    elements.append(Image("images/l2_middle.PNG", width=20*cm, height=140))
+    elements.append(Image(resource_path("images/l2_middle.PNG"), width=20*cm, height=140))
 
     ROWS_TARGET = 10
     df = df_transformed.copy()
@@ -227,13 +228,13 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     # Header row
     header_row = [
         Image(resource_path("images/l2_table1.PNG"), width=0.6*cm, height=35),
-        Image(resource_path("images/l2_table2.PNG"), width=4*cm, height=35),
-        Image(resource_path("images/l2_table3.PNG"), width=3*cm, height=35),
-        Image(resource_path("images/l2_table4.PNG"), width=2.6*cm, height=35),
-        Image(resource_path("images/l2_table5.PNG"), width=2*cm, height=35),
-        Image(resource_path("images/l2_table6.PNG"), width=1.4*cm, height=35),
-        Image(resource_path("images/l2_table7.PNG"), width=1.5*cm, height=35),
-        Image(resource_path("images/l2_table8.PNG"), width=2*cm, height=35)
+        Image(resource_path("images/l2_table2.PNG"), width=4.2*cm, height=42),
+        Image(resource_path("images/l2_table3.PNG"), width=2.7*cm, height=41),
+        Image(resource_path("images/l2_table4.PNG"), width=2.4*cm, height=39),
+        Image(resource_path("images/l2_table5.PNG"), width=2.2*cm, height=39),
+        Image(resource_path("images/l2_table6.PNG"), width=1.1*cm, height=35),
+        Image(resource_path("images/l2_table7.PNG"), width=1.4*cm, height=39),
+        Image(resource_path("images/l2_table8.PNG"), width=1.7*cm, height=38)
     ]
 
     table_rows = []
@@ -310,7 +311,7 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
 
     if len(leftover_df) > 0:
         elements.append(PageBreak())
-        elements += generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value)
+        elements += generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value, fid, englishnormal)
     return elements
                              
             
