@@ -3,6 +3,7 @@ from ui_widgets import HoverComboBox
 from layouts import layout1, layout2
 from pathlib import Path
 import tempfile
+import time
 import platform
 import os
 import pandas as pd
@@ -67,7 +68,7 @@ class ExcelFilterApp(QWidget):
 
         # inside init_ui()
         self.layout_dropdown = HoverComboBox()
-        self.layout_dropdown.addItems(["Layout1", "Layout2"])   # names shown to user
+        self.layout_dropdown.addItems(["Layout2","Layout1"])   # names shown to user
         add_centered_dropdown("Select Layout:", self.layout_dropdown)
 
         # keep a map from dropdown text -> module
@@ -133,11 +134,9 @@ class ExcelFilterApp(QWidget):
             blocks = sorted(df["Block"].unique().astype(str))
             self.block_dropdown.clear()
             self.block_dropdown.addItem("Select Block")
-            self.block_dropdown.addItems(blocks)
-
             self.village_dropdown.clear()
             self.village_dropdown.addItem("Select Village")
-
+            self.block_dropdown.addItems(blocks)
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error reading Excel:\n{str(e)}")
@@ -147,7 +146,12 @@ class ExcelFilterApp(QWidget):
         if block == "Select Block" or self.df_full is None:
             return
 
-        self.df_block_filtered = self.df_full[self.df_full["Block"].astype(str) == block]
+        self.df_block_filtered = self.df_full[self.df_full["Block"].astype(str) == block].copy()
+        self.df_block_filtered["FID"] = self.df_block_filtered["FID"].apply(
+            lambda x: "" if pd.isna(x)
+            else str(int(x)) if isinstance(x, (int, float)) and float(x).is_integer()
+            else str(x)
+        )
 
         villages = sorted(self.df_block_filtered["Village"].unique().astype(str))
         self.village_dropdown.clear()
@@ -159,43 +163,43 @@ class ExcelFilterApp(QWidget):
 
         self.farmer_dropdown.clear()
         self.farmer_dropdown.addItem("Select Farmer Name")
-
-    def populate_farmers(self):
-        fid = self.fid_dropdown.currentText()
-        if fid == "Select Farmer ID" or self.df_village_filtered is None:
-            return
-
-        df_fid_filtered = self.df_village_filtered[self.df_village_filtered["FID"].astype(str) == fid]
-        farmers = sorted(df_fid_filtered["Farmer Name"].unique().astype(str))
-
-        self.farmer_dropdown.clear()
-        self.farmer_dropdown.addItem("Select Farmer Name")
-        self.farmer_dropdown.addItems(farmers)
-
+        
     def populate_fids(self):
         village = self.village_dropdown.currentText()
         if village == "Select Village" or self.df_block_filtered is None:
             return
 
         df_village_filtered = self.df_block_filtered[self.df_block_filtered["Village"].astype(str) == village]
-        self.df_village_filtered = df_village_filtered  # Save for next step
+        self.df_village_filtered = df_village_filtered
+        fids = sorted(df_village_filtered["FID"].unique())
 
-        fids = sorted(df_village_filtered["FID"].unique().astype(str))
-
+        
         self.fid_dropdown.clear()
         self.fid_dropdown.addItem("Select Farmer ID")
         self.fid_dropdown.addItems(fids)
-
+        
         self.farmer_dropdown.clear()
         self.farmer_dropdown.addItem("Select Farmer Name")
+        
+    def populate_farmers(self):
+        fid = self.fid_dropdown.currentText()
+        if fid == "Select Farmer ID" or self.df_village_filtered is None:
+            return
 
+        self.df_fid_filtered = self.df_village_filtered[self.df_village_filtered["FID"] == fid]
+        farmers = sorted(self.df_fid_filtered["Farmer Name"].unique().astype(str))
+        
+        self.farmer_dropdown.clear()
+        self.farmer_dropdown.addItem("Select Farmer Name")
+        self.farmer_dropdown.addItems(farmers)
+        
     def save_pdf(self):
         block = self.block_dropdown.currentText()
         village = self.village_dropdown.currentText()
         fid = self.fid_dropdown.currentText()
         farmer = self.farmer_dropdown.currentText()
         selected_layout_name = self.layout_dropdown.currentText()
-        layout = self.layouts.get(selected_layout_name, layout1)
+        layout = self.layouts.get(selected_layout_name, layout2)
         
         if block == "Select Block" or village == "Select Village":
             QMessageBox.warning(self, "Missing Selection", "Please select at least Block and Village.")
@@ -210,11 +214,8 @@ class ExcelFilterApp(QWidget):
 
         # Option 1: All four selected — Single farmer mode
         if fid != "Select Farmer ID" and farmer != "Select Farmer Name":
-            self.df_final_filtered = self.df_full[
-                (self.df_full["Block"].astype(str) == block) &
-                (self.df_full["Village"].astype(str) == village) &
-                (self.df_full["FID"].astype(str) == fid) &
-                (self.df_full["Farmer Name"].astype(str) == farmer)
+            self.df_final_filtered = self.df_fid_filtered[
+                (self.df_fid_filtered["Farmer Name"].astype(str) == farmer)
             ]
             contact = self.df_final_filtered["Contact Number"].astype(str).iloc[0]  # safe
             if self.df_final_filtered.empty:
@@ -239,9 +240,8 @@ class ExcelFilterApp(QWidget):
 
         # Option 2: Only Block + Village — Batch mode
         elif fid == "Select Farmer ID" and farmer == "Select Farmer Name":
-            df_village = self.df_full[
-                (self.df_full["Block"].astype(str) == block) &
-                (self.df_full["Village"].astype(str) == village)
+            df_village = self.df_block_filtered[
+                (self.df_block_filtered["Village"].astype(str) == village)
             ]
             farmers = df_village[["FID", "Farmer Name"]].drop_duplicates()
 
@@ -290,7 +290,7 @@ class ExcelFilterApp(QWidget):
         fid = self.fid_dropdown.currentText()
         farmer = self.farmer_dropdown.currentText()
         selected_layout_name = self.layout_dropdown.currentText()
-        layout = self.layouts.get(selected_layout_name, layout1)
+        layout = self.layouts.get(selected_layout_name, layout2)
         
         if block == "Select Block" or village == "Select Village":
             QMessageBox.warning(self, "Missing Selection", "Please select at least Block and Village.")
@@ -305,11 +305,8 @@ class ExcelFilterApp(QWidget):
         
         # Option 1: Single farmer
         if fid != "Select Farmer ID" and farmer != "Select Farmer Name":
-            self.df_final_filtered = self.df_full[
-                (self.df_full["Block"].astype(str) == block) &
-                (self.df_full["Village"].astype(str) == village) &
-                (self.df_full["FID"].astype(str) == fid) &
-                (self.df_full["Farmer Name"].astype(str) == farmer)
+            self.df_final_filtered = self.df_fid_filtered[
+                (self.df_fid_filtered["Farmer Name"].astype(str) == farmer)
             ]
             contact = self.df_final_filtered["Contact Number"].astype(str).iloc[0]
             if self.df_final_filtered.empty:
@@ -327,16 +324,21 @@ class ExcelFilterApp(QWidget):
                 layout.generate_pdf(
                     df_transformed, temp_path, block, village, fid, farmer, contact, self.df_final_filtered
                 )
-                os.startfile(temp_path, "print")
+                try:
+                    import win32api
+                    win32api.ShellExecute(0, "print", temp_path, None, ".", 0)
+                    time.sleep(5)
+                    os.remove(temp_path)
+                except:
+                    pass
                 QMessageBox.information(self, "Printed", "PDF sent to printer.")
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to print PDF:\n{e}")
 
         # Option 2: All farmers in village
         elif fid == "Select Farmer ID" and farmer == "Select Farmer Name":
-            df_village = self.df_full[
-                (self.df_full["Block"].astype(str) == block) &
-                (self.df_full["Village"].astype(str) == village)
+            df_village = self.df_block_filtered[
+                (self.df_block_filtered["Village"].astype(str) == village)
             ]
 
             farmers = df_village[["FID", "Farmer Name"]].drop_duplicates()
@@ -369,7 +371,13 @@ class ExcelFilterApp(QWidget):
                     layout.generate_pdf(
                     df_transformed, temp_path, block, village, current_fid, current_name, contact, self.df_final_filtered
                 )
-                    os.startfile(temp_path, "print")
+                    try:
+                        import win32api
+                        win32api.ShellExecute(0, "print", temp_path, None, ".", 0)
+                        time.sleep(5)
+                        os.remove(temp_path)
+                    except:
+                        pass
                 except Exception as e:
                     errors.append(f"{current_name}: {e}")
 
