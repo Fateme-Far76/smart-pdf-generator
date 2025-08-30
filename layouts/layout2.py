@@ -74,13 +74,11 @@ def save_image_with_texts(
 
 def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sign, total_value, fid, englishnormal):
     
-    elements = []
-    elements.append(Paragraph(f"<b>{fid}</b>", englishnormal))
-    elements.append(Spacer(1, 3)) 
+    elements = [] 
     
     # --- constants ---
     DATA_PER_PAGE = 40
-    START_NUM = 11                 # numbering starts at 11 on every page
+    START_NUM = 11
 
     # Make a display-safe copy (no NaN strings)
     df = leftover_df.reset_index(drop=True).copy()
@@ -121,6 +119,8 @@ def generate_page2(leftover_df, header_row, data_tbl_width, tbl_style, table_sig
         tbl = Table(table_data, colWidths=data_tbl_width)
         
         tbl.setStyle(tbl_style)
+        elements.append(Paragraph(f"<b>{fid}</b>", englishnormal))
+        elements.append(Spacer(1, 3))
         elements.append(tbl)
         elements.append(Spacer(1, 10))   
         elements.append(table_sign)
@@ -212,7 +212,7 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
     )
     sum_area = float(area_series.sum())
     total_area = f"{sum_area:.5f}"
-    page_df = df.reset_index(drop=True).copy()
+    page_df = df.drop(columns=["फसल का नाम"]).reset_index(drop=True).copy()
     page_df = page_df.map(lambda x: "" if pd.isna(x) else str(x))
 
     # Split into first 10 and leftover
@@ -224,7 +224,7 @@ def generate_page1(df_transformed, block, village, fid, farmer, contact, df_fina
         blanks_needed = 10 - len(page_display)
         pad = pd.DataFrame([[""] * page_display.shape[1]] * blanks_needed, columns=page_display.columns)
         page_display = pd.concat([page_display, pad], ignore_index=True)
-    
+        
     # Header row
     header_row = [
         Image(resource_path("images/l2_table1.PNG"), width=0.6*cm, height=35),

@@ -36,7 +36,8 @@ def transform_filtered_data2(df_final_filtered: pd.DataFrame):
             "बीमित क्षेत्र": df["Crop Area"],
             "प्रभावित क्षेत्र (% में)": "",
             "प्रभावित क्षेत्र में नुकसान (% में)": "",
-            "टिप्पणी (यदि कोई है)": ""
+            "टिप्पणी (यदि कोई है)": "",
+            "फसल का नाम": df["Crop"]
         })
 
         return transformed    
